@@ -2,6 +2,10 @@
 
 We recently made available TotalSegmentator [^1] Segmentations on NLST for over 125k CT scans with approximately 9.5 Million segmentations[^2] on Imaging Data Commons[^3]. In addition, for each segmentation, we extracted 28 shape and first-order radiomics features using pyradiomics[^4]. We encoded these Segmentations into DICOM SEG objects and shape and first-order features into DICOM Structured Reports. Moreover, we also saved pyradiomics general module features in JSON format.
 
+This repository contains the jupyter notebooks and other related materials accompanying the following paper: 
+
+Krishnaswamy, D., Thiriveedhi, V., Ciausu, C., Clunie, D., Pieper, S., Kikinis, R. & Fedorov, A. "Rule-based outlier detection of AI-generated anatomy segmentations". Submitted to NeurIPS Datasets and Benchmarks Track 2024. 
+
 To help get a sense of the quality of these segmentations, we proposed four rule-based heuristics without the use of AI/ML.
 
 1. Segmentation completeness: Depending on the inferior-to-superior extent of the axial CT scan, some anatomical structures may be included only partially. To remove these incomplete segmentations from further analysis, we evaluated the completeness of the segmentation by ensuring that there was at least one empty slice above and below the segment. 
@@ -12,23 +16,25 @@ the number of connected components, which in the ideal case should be one. We th
 3. Laterality: Segmentation algorithms may produce the incorrect laterality label (left vs right) of a region. To detect this, we evaluated the laterality by using metadata extracted from the segmentations using the pyradiomics general feature CenterOfMass field. This
 attribute provides the center of mass of the region in the world-coordinate system. Using this system, the coordinates increase from right to left; therefore, we can easily determine if the laterality of a paired structure is correct.
 
-4. Minimum volume from voxel summation: To our knowledge, the adrenal gland is the smallest organ segmented by TotalSegmentator. The average volume according to [^5] is approximately 5 mL. We used the pyradiomics feature Volume from Voxel Summation to discern volume and chose 5 mL as the threshold for all segmentations to remove artifacts.
+4. Minimum volume from voxel summation: To our knowledge, the adrenal gland is the smallest organ segmented by TotalSegmentator. The average volume according to [^5] is approximately 5 mL. We used the pyradiomics feature Volume from Voxel Summation to discern volume and chose 5 mL as the thresholRule-based outlier detection of AI-generated anatomy segmentationd for all segmentations to remove artifacts.
 
-Check out our paper [to be updated] to learn more about the results of these heuristics and their effects on three sample studies.
 
 ## Interactive visualization on Hugging Face 
 
 To facilitate analysis of the segmentation results, we developed an interactive dashboard based on
 the Streamlit framework (https://github.com/streamlit/streamlit) and hosted it on the
-free tier of Hugging Face spaces (https://huggingface.co/spaces/ImagingDataCommons/
-CloudSegmentatorResults). The dashboard consists of two pages. The ‘Summary’ page contains
+free tier of Hugging Face spaces (https://huggingface.co/spaces/ImagingDataCommons/CloudSegmentatorResults). The dashboard consists of two pages. The ‘Summary’ page contains
 the results of applying each of the four heuristics to each of the segments. The table can be sorted to quickly gain insights into which of the segmentations were flagged as outliers. The "Plots" page features two types of plots and includes filtering options for radiomics features, anatomical structure, laterality, and the four heuristics. We display upset plots, which show how many segments passed or failed the heuristics, and in what combinations. Additionally, we display violin plots, which demonstrate the distributions of the standard deviation of radiomics features before and after applying the heuristics to a patient. This helps in studying the effect of the heuristics on the consistency of
 a radiomics feature value distribution for a given anatomical structure within a patient. Both plots are updated dynamically depending on the choice of filters.
 
 ## Data
-Two colab notebooks can be used to reproduce our work. For the first notebook, we initially tested it on a 256 GB RAM instance. However, we made several optimizations since then to bring the RAM consumption low despite leading to a longer run times. We were able to run it successfully even on a 2vCPUs, 16 GB RAM free tier [hugging face jupyterlab space](https://huggingface.co/new-space?template=SpacesExamples%2Fjupyterlab). Run times get better if you have access to better compute resources. Other runtimes, we tested include the 2vCPU 13 GB free colab instance and the 8vCPU, 51 GB Colab Pro High-RAM instance. No GCP cloud credentials are necessary as we will be querying the metadata exported from IDC Bigquery tables as parquet files that are made available for the public for free in AWS buckets. We use duckdb, an in-memory database as it can handle highly complex data in a tiny footprint. Please check this link on how US-based researchers can request ACCESS allocations for free [^6][^7].
+Two colab notebooks can be used to reproduce our work: the first focuses on downloading base tables and generating derived tables for heuristics, while the second uses the heuristics tables and explores the use cases and generates the figures presented in our manuscript.
 
-Besides notebooks, the following metadata files are attached to a GitHub release (https://github.com/ImagingDataCommons/CloudSegmentatorResults/releases/tag/0.0.1). Besides base tables, all other derived tables can be generated by running the part 1 colab notebook. 
+For the first notebook, we initially tested it on a 32vCPUs 256 GB RAM Jetstream2 instance[^6][^7].However, we made several optimizations since then to bring the RAM consumption low despite leading to a longer run times. We were able to run it successfully even on a 2vCPUs, 16 GB RAM free tier [hugging face jupyterlab space](https://huggingface.co/new-space?template=SpacesExamples%2Fjupyterlab). Run times get better if you have access to better compute resources. Other runtimes, we tested include the 2vCPU 13 GB free colab instance and the 8vCPU, 51 GB Colab Pro High-RAM instance. No GCP cloud credentials are necessary as we will be querying the metadata exported from IDC Bigquery tables as parquet files that are made available for the public for free in AWS buckets. We use duckdb, an in-memory database as it can handle highly complex data in a tiny footprint. Please check this link on how US-based researchers can request ACCESS allocations for free [^6][^7].
+
+The second notebook contains the use cases that we studied in the manuscript. We include the generation of figures that we presented in the paper, starting with the parquet files generated from the first notebook. If you want to skip the creation of the parquet files, you can jump straight to this notebook. 
+
+The following base tables, and the derived tables (and their schema) for heuristics generated by running the part 1 notebook are attached to the GitHub release (https://github.com/ImagingDataCommons/CloudSegmentatorResults/releases/tag/0.0.1):
 
 - **[PerframeFunctionalGroupsSequence](https://github.com/ImagingDataCommons/CloudSegmentatorResults/releases/download/0.0.1/nlst_totalseg_perframe.parquet)**: The DICOM SEG object contains the DICOM attribute PerframeFunctionalGroupsSequence which encodes segment and its corresponding slice locations. Due to BigQuery's limit of 1 MB per value in a cell, DICOM Segmentation Objects generated from TotalSegmentator/dcmqi that contained the DICOM attribute PerFrameFunctionalGroupsSequence over 1 MB were dropped from the BigQuery metadata table. To extract this attribute, we developed a workflow on [Terra](https://dockstore.org/my-workflows/github.com/ImagingDataCommons/CloudSegmentator/perFrameFunctionalGroupSequenceExtractionOnTerra). We unnested this attribute and are making it available to the public as a parquet file.
 
